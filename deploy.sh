@@ -232,9 +232,9 @@ download_binary() {
     release_info=$(curl -sL --max-time 15 "$release_url" 2>/dev/null || echo "")
 
     if [[ -n "$release_info" ]] && echo "$release_info" | grep -q "browser_download_url"; then
-        # 提取下载 URL
+        # 提取下载 URL（从 JSON 中提取完整的 browser_download_url 值）
         local download_url
-        download_url=$(echo "$release_info" | grep -o "browser_download_url.*${ARCH}" | head -1 | cut -d'"' -f4)
+        download_url=$(echo "$release_info" | grep "browser_download_url" | grep "${ARCH}" | head -1 | sed 's/.*"browser_download_url": *"//;s/".*//')
 
         if [[ -n "$download_url" ]]; then
             print_info "找到预编译二进制文件"
