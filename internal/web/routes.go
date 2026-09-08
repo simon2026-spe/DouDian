@@ -4,7 +4,9 @@ import (
 	"doudian/internal/config"
 	"doudian/internal/web/controller"
 	"doudian/internal/web/middleware"
+	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -114,7 +116,9 @@ func SetupRouter() *gin.Engine {
 		}
 	}
 
-	baseGroup.StaticFS("/assets", http.Dir("./static/assets"))
+	// 静态资源在根级别提供服务（不经过 secret path 保护）
+	// 静态资源是 JS/CSS 文件，不含敏感数据
+	r.StaticFS("/assets", http.Dir("./static/assets"))
 
 	r.NoRoute(func(c *gin.Context) {
 		path := c.Request.URL.Path
@@ -129,7 +133,22 @@ func SetupRouter() *gin.Engine {
 			return
 		}
 
-		c.File("./static/index.html")
+		// 读取 index.html 并注入 secret path，供前端使用
+		htmlBytes, err := os.ReadFile("./static/index.html")
+		if err != nil {
+			c.String(http.StatusInternalServerError, "index.html not found")
+			return
+		}
+
+		html := string(htmlBytes)
+		if secretPath != "" {
+			inject := fmt.Sprintf("<script>window.__BASE_PATH__=\"/%s\";</script>", secretPath)
+			html = strings.Replace(html, "</head>", inject+"</head>", 1)
+		} else {
+			html = strings.Replace(html, "</head>", "<script>window.__BASE_PATH__=\"\";</script></head>", 1)
+		}
+
+		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 	})
 
 	return r

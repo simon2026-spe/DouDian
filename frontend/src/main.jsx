@@ -18,7 +18,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         },
       }}
     >
-      <BrowserRouter>
+      <BrowserRouter basename={window.__BASE_PATH__ || '/'}>
         <App />
       </BrowserRouter>
     </ConfigProvider>

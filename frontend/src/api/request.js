@@ -1,14 +1,19 @@
 import axios from 'axios'
 import { message } from 'antd'
 
+// 获取后端注入的安全路径前缀
+const getBasePath = () => {
+  return window.__BASE_PATH__ || ''
+}
+
 // 自动适配 baseURL
 const getBaseURL = () => {
   // 开发环境使用代理
   if (import.meta.env.DEV) {
     return '/api'
   }
-  // 生产环境根据当前域名推断
-  return `${window.location.origin}/api`
+  // 生产环境：origin + secret path + /api
+  return `${window.location.origin}${getBasePath()}/api`
 }
 
 const request = axios.create({
@@ -71,7 +76,7 @@ request.interceptors.response.use(
         localStorage.removeItem('isLoggedIn')
         localStorage.removeItem('userInfo')
         message.error('登录已过期，请重新登录')
-        window.location.href = '/login'
+        window.location.href = getBasePath() + '/login'
       } else if (status === 403) {
         message.error('没有权限访问')
       } else if (status === 404) {
