@@ -1,0 +1,79 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+          cd ..
+          cp -r frontend/dist static
+
+      - name: Build Linux amd64
+        env:
+          CGO_ENABLED: 0
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          go build -ldflags "-s -w" -o doudian-linux-amd64 .
+          tar -czf doudian-linux-amd64.tar.gz doudian-linux-amd64 static manage.sh install.sh
+
+      - name: Build Linux arm64
+        env:
+          CGO_ENABLED: 0
+          GOOS: linux
+          GOARCH: arm64
+        run: |
+          go build -ldflags "-s -w" -o doudian-linux-arm64 .
+          tar -czf doudian-linux-arm64.tar.gz doudian-linux-arm64 static manage.sh install.sh
+
+      - name: Generate Release Tag
+        id: tag
+        run: |
+          if [ -z "${{ github.event.inputs.tag }}" ]; then
+            echo "tag=$(date +v%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: DouDian ${{ steps.tag.outputs.tag }}
+          body: |
+            ## DouDian 抖店代发供应商管理系统
+
+            ### 下载说明
+            - `doudian-linux-amd64.tar.gz` - 适用于大多数 VPS (x86_64)
+            - `doudian-linux-arm64.tar.gz` - 适用于 ARM 服务器
+
+            ### 部署方式
+            ```bash
+            bash <(curl -fsSL https://raw.githubusercontent.com/simon2026-spe/DouDian/master/deploy.sh)
+            ```
+          files: |
+            doudian-linux-amd64.tar.gz
+            doudian-linux-arm64.tar.gz

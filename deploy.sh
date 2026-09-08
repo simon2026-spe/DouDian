@@ -4,7 +4,7 @@
 # 一键远程部署脚本
 #
 # 用法:
-#   bash <(curl -fsSL https://raw.githubusercontent.com/simon2026-spe/DouDian/main/deploy.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/simon2026-spe/DouDian/master/deploy.sh)
 #
 # 环境变量（非交互模式）:
 #   PORT=2095              服务端口
@@ -224,82 +224,107 @@ download_binary() {
 
     BINARY_SOURCE="remote"
 
-    # 尝试从 GitHub Releases 下载
+    # 方式1: 从 GitHub Releases 下载预编译二进制文件（无需编译）
     local release_url="https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/releases/latest"
 
-    print_info "查询 GitHub 最新版本..."
+    print_info "查询 GitHub 最新 Release..."
     local release_info
-    release_info=$(curl -sL --max-time 10 "$release_url" 2>/dev/null || echo "")
+    release_info=$(curl -sL --max-time 15 "$release_url" 2>/dev/null || echo "")
 
-    if [[ -n "$release_info" ]]; then
+    if [[ -n "$release_info" ]] && echo "$release_info" | grep -q "browser_download_url"; then
         # 提取下载 URL
         local download_url
         download_url=$(echo "$release_info" | grep -o "browser_download_url.*${ARCH}" | head -1 | cut -d'"' -f4)
 
         if [[ -n "$download_url" ]]; then
+            print_info "找到预编译二进制文件"
             print_info "下载地址: $download_url"
-            print_info "下载中..."
+            print_info "下载中（约 10-30 秒）..."
             if curl -sL --max-time 120 -o "$TEMP_DIR/doudian.tar.gz" "$download_url"; then
                 tar -xzf "$TEMP_DIR/doudian.tar.gz" -C "$TEMP_DIR/"
-                print_ok "程序文件下载完成"
+                print_ok "预编译二进制文件下载完成"
                 return
             fi
         fi
     fi
 
-    # 如果 GitHub Releases 不可用，尝试从仓库直接下载
-    print_warn "GitHub Releases 不可用，尝试从仓库源码下载..."
-    print_info "将下载源码并在服务器上编译（需要 Go 环境）"
+    # 方式2: 从 GitHub Releases 下载失败，尝试源码编译
+    print_warn "未找到 GitHub Release 预编译文件"
+    print_info "将下载源码并在服务器上编译（自动安装 Go + Node.js）..."
+    echo ""
 
     local repo_url="https://github.com/${GITHUB_USER}/${GITHUB_REPO}.git"
+
+    # 安装 git
+    if ! command -v git &>/dev/null; then
+        print_info "安装 git..."
+        case "$OS" in
+            debian|ubuntu) apt-get install -y -qq git ;;
+            centos|rocky|rhel|fedora) yum install -y -q git || dnf install -y -q git ;;
+            alpine) apk add --no-cache git ;;
+        esac
+    fi
+
     if git clone --depth=1 "$repo_url" "$TEMP_DIR/DouDian" 2>/dev/null; then
         print_ok "源码下载完成"
 
-        # 检查 Go 环境
+        # 安装 Go
         if ! command -v go &>/dev/null; then
-            print_info "安装 Go 环境..."
-            if [[ "$OS" == "debian" || "$OS" == "ubuntu" ]]; then
-                apt-get install -y -qq golang-go 2>/dev/null || {
-                    # 从官方下载 Go
-                    local go_version="go1.22.0"
-                    local go_url="https://go.dev/dl/${go_version}.linux-${ARCH}.tar.gz"
-                    curl -sL "$go_url" | tar -C /usr/local -xzf -
-                    export PATH=$PATH:/usr/local/go/bin
-                }
-            else
-                yum install -y -q golang 2>/dev/null || {
-                    local go_version="go1.22.0"
-                    local go_url="https://go.dev/dl/${go_version}.linux-${ARCH}.tar.gz"
-                    curl -sL "$go_url" | tar -C /usr/local -xzf -
-                    export PATH=$PATH:/usr/local/go/bin
-                }
-            fi
+            print_info "安装 Go 1.22..."
+            local go_version="go1.22.0"
+            local go_url="https://go.dev/dl/${go_version}.linux-${ARCH}.tar.gz"
+            curl -sL "$go_url" | tar -C /usr/local -xzf -
+            export PATH=$PATH:/usr/local/go/bin
+            print_ok "Go 安装完成"
         fi
 
-        # 构建
+        # 编译后端
         print_info "编译后端..."
         cd "$TEMP_DIR/DouDian"
         CGO_ENABLED=0 go build -ldflags "-s -w" -o doudian .
+        print_ok "后端编译完成"
 
-        # 构建前端（如果有 npm）
+        # 安装 Node.js 并构建前端
+        if ! command -v node &>/dev/null; then
+            print_info "安装 Node.js 18..."
+            case "$OS" in
+                debian|ubuntu)
+                    curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+                    apt-get install -y -qq nodejs
+                    ;;
+                centos|rocky|rhel|fedora)
+                    curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
+                    yum install -y -q nodejs || dnf install -y -q nodejs
+                    ;;
+                alpine)
+                    apk add --no-cache nodejs npm
+                    ;;
+            esac
+            print_ok "Node.js 安装完成"
+        fi
+
         if command -v npm &>/dev/null; then
             print_info "构建前端..."
-            cd frontend && npm install --silent && npm run build
+            cd frontend && npm install --silent 2>/dev/null && npm run build
             cd ..
             cp -r frontend/dist static
+            print_ok "前端构建完成"
+        else
+            print_warn "npm 不可用，跳过前端构建（将仅使用后端 API）"
         fi
 
         cd "$TEMP_DIR/DouDian"
-        cp manage.sh "$TEMP_DIR/"
+        cp manage.sh "$TEMP_DIR/" 2>/dev/null || true
         BINARY_SOURCE="compiled"
-        print_ok "编译完成"
+        print_ok "源码编译完成"
         return
     fi
 
     print_error "无法下载程序文件"
-    echo -e "  ${YELLOW}请手动下载并上传到服务器，然后运行:${PLAIN}"
-    echo -e "  ${YELLOW}  1. 上传 doudian 二进制文件和 static/ 目录到服务器${PLAIN}"
-    echo -e "  ${YELLOW}  2. 在同目录运行: bash install.sh${PLAIN}"
+    echo -e "  ${YELLOW}请手动操作:${PLAIN}"
+    echo -e "  ${YELLOW}  1. 在本地运行 make build-linux 编译${PLAIN}"
+    echo -e "  ${YELLOW}  2. 上传 doudian-linux-amd64 和 static/ 到服务器${PLAIN}"
+    echo -e "  ${YELLOW}  3. 运行 bash install.sh${PLAIN}"
     exit 1
 }
 
