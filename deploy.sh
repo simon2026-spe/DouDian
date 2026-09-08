@@ -224,26 +224,43 @@ download_binary() {
 
     BINARY_SOURCE="remote"
 
-    # 方式1: 从 GitHub Releases 下载预编译二进制文件（无需编译）
-    local release_url="https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/releases/latest"
+    # 方式1: 直接从 GitHub Releases 下载预编译二进制文件（无需 API，无需编译）
+    # GitHub 支持通过 releases/latest/download/ 直接下载最新 Release 的资源
+    local direct_url="https://github.com/${GITHUB_USER}/${GITHUB_REPO}/releases/latest/download/doudian-linux-${ARCH}.tar.gz"
 
-    print_info "查询 GitHub 最新 Release..."
-    local release_info
-    release_info=$(curl -sL --max-time 15 "$release_url" 2>/dev/null || echo "")
+    print_info "尝试下载预编译二进制文件..."
+    print_info "下载地址: $direct_url"
 
-    if [[ -n "$release_info" ]] && echo "$release_info" | grep -q "browser_download_url"; then
-        # 提取下载 URL（从 JSON 中提取完整的 browser_download_url 值）
-        local download_url
-        download_url=$(echo "$release_info" | grep "browser_download_url" | grep "${ARCH}" | head -1 | sed 's/.*"browser_download_url": *"//;s/".*//')
+    # 先检查 URL 是否可用（HTTP 200）
+    local http_code
+    http_code=$(curl -sL -o /dev/null -w "%{http_code}" --max-time 15 "$direct_url" 2>/dev/null || echo "000")
 
-        if [[ -n "$download_url" ]]; then
-            print_info "找到预编译二进制文件"
-            print_info "下载地址: $download_url"
-            print_info "下载中（约 10-30 秒）..."
-            if curl -sL --max-time 120 -o "$TEMP_DIR/doudian.tar.gz" "$download_url"; then
-                tar -xzf "$TEMP_DIR/doudian.tar.gz" -C "$TEMP_DIR/"
-                print_ok "预编译二进制文件下载完成"
-                return
+    if [[ "$http_code" == "200" ]]; then
+        print_info "找到预编译二进制文件，下载中（约 10-30 秒）..."
+        if curl -sL --max-time 120 -o "$TEMP_DIR/doudian.tar.gz" "$direct_url"; then
+            tar -xzf "$TEMP_DIR/doudian.tar.gz" -C "$TEMP_DIR/"
+            print_ok "预编译二进制文件下载完成"
+            return
+        fi
+    else
+        print_warn "直接下载失败 (HTTP $http_code)，尝试 GitHub API..."
+
+        # 方式1b: 通过 GitHub API 获取下载 URL
+        local release_url="https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/releases/latest"
+        local release_info
+        release_info=$(curl -sL --max-time 15 "$release_url" 2>/dev/null || echo "")
+
+        if [[ -n "$release_info" ]] && echo "$release_info" | grep -q "browser_download_url"; then
+            local download_url
+            download_url=$(echo "$release_info" | grep "browser_download_url" | grep "${ARCH}" | head -1 | sed 's/.*"browser_download_url": *"//;s/".*//')
+
+            if [[ -n "$download_url" ]]; then
+                print_info "通过 API 找到: $download_url"
+                if curl -sL --max-time 120 -o "$TEMP_DIR/doudian.tar.gz" "$download_url"; then
+                    tar -xzf "$TEMP_DIR/doudian.tar.gz" -C "$TEMP_DIR/"
+                    print_ok "预编译二进制文件下载完成"
+                    return
+                fi
             fi
         fi
     fi
