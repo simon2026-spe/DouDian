@@ -1,0 +1,44 @@
+.searchbar-container {
+  margin-bottom: 16px;
+}
+
+.searchbar-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.searchbar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 200px;
+}
+
+.searchbar-item .ant-input,
+.searchbar-item .ant-select {
+  height: 32px;
+}
+
+.searchbar-item .ant-select-selector {
+  height: 32px !important;
+  display: flex;
+  align-items: center;
+}
+
+.searchbar-label {
+  white-space: nowrap;
+  font-size: 14px;
+  line-height: 32px;
+  color: rgba(0, 0, 0, 0.85);
+  flex-shrink: 0;
+}
+
+.searchbar-item .ant-input-affix-wrapper {
+  height: 32px;
+}
+
+.searchbar-actions {
+  margin-top: 12px;
+}
