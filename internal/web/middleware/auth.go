@@ -48,8 +48,14 @@ func AuthRequired() gin.HandlerFunc {
 					"message": "未登录或登录已过期",
 				})
 			} else {
-				// 重定向到登录页
-				c.Redirect(http.StatusFound, "/login")
+				// 重定向到登录页（包含 secret path 前缀）
+				cfg := config.Get()
+				secretPath := strings.Trim(cfg.SecretPath, "/")
+				loginPath := "/login"
+				if secretPath != "" {
+					loginPath = "/" + secretPath + "/login"
+				}
+				c.Redirect(http.StatusFound, loginPath)
 			}
 			c.Abort()
 			return

@@ -59,11 +59,29 @@ func InitDB(dbPath string) error {
 
 // seedData 填充种子数据
 func seedData() error {
-	// 检查是否已有数据
+	// 独立检查 admin 用户是否存在，确保登录始终可用
+	var userCount int64
+	DB.Model(&model.User{}).Count(&userCount)
+	if userCount == 0 {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+		admin := model.User{
+			Username:     "admin",
+			PasswordHash: string(hashedPassword),
+		}
+		if err := DB.Create(&admin).Error; err != nil {
+			return err
+		}
+		log.Println("Default admin user created (admin/admin123)")
+	}
+
+	// 检查是否已有业务数据
 	var shopCount int64
 	DB.Model(&model.Shop{}).Count(&shopCount)
 	if shopCount > 0 {
-		log.Println("Data already exists, skipping seed")
+		log.Println("Business data already exists, skipping seed")
 		return nil
 	}
 
@@ -135,26 +153,12 @@ func seedData() error {
 	DB.Model(&orders[0]).Update("status", model.OrderStatusMatched)
 	DB.Model(&orders[1]).Update("status", model.OrderStatusPurchased)
 
-	// 创建默认 admin 用户
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
-	if err != nil {
-		return err
-	}
-	admin := model.User{
-		Username:     "admin",
-		PasswordHash: string(hashedPassword),
-	}
-	if err := DB.Create(&admin).Error; err != nil {
-		return err
-	}
-
 	log.Println("Seed data completed successfully")
 	log.Printf("  Shops: %d", len(shops))
 	log.Printf("  Suppliers: %d", len(suppliers))
 	log.Printf("  Products: %d", len(products))
 	log.Printf("  Orders: %d", len(orders))
 	log.Printf("  PurchaseOrders: %d", len(purchaseOrders))
-	log.Printf("  Users: 1 (admin)")
 
 	return nil
 }
