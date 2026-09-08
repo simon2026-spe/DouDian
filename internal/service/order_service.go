@@ -64,7 +64,7 @@ func CreateOrder(order *model.Order) error {
 }
 
 func UpdateOrder(id uint, order *model.Order) error {
-	existing, err := GetOrder(id)
+	existing, _, err := GetOrder(id)
 	if err != nil {
 		return err
 	}

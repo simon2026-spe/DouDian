@@ -5,7 +5,6 @@ import (
 	"doudian/internal/database/model"
 	"encoding/csv"
 	"io"
-	"strconv"
 )
 
 func ListShops(page, pageSize int, keyword, status string) (*PaginatedResult, error) {
