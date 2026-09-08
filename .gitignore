@@ -46,5 +46,5 @@ logs/
 *.bak
 *.cache
 
-# Go toolchain (not needed in repo)
-tools/
+# Go toolchain source (not needed in repo)
+/tools/
