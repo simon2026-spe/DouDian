@@ -11,9 +11,10 @@
 - [本地开发](#本地开发)
 - [构建生产版本](#构建生产版本)
 - [部署方式](#部署方式)
-  - [方式一：VPS 一键部署（推荐）](#方式一vps-一键部署推荐)
-  - [方式二：Docker 部署](#方式二docker-部署)
-  - [方式三：手动部署](#方式三手动部署)
+  - [方式一：一键远程部署（推荐）](#方式一一键远程部署推荐)
+  - [方式二：本地编译 + install.sh 部署](#方式二本地编译--installsh-部署)
+  - [方式三：Docker 部署](#方式三docker-部署)
+  - [方式四：手动部署](#方式四手动部署)
 - [API 接口](#api-接口)
 - [环境变量](#环境变量)
 - [安全配置](#安全配置)
@@ -143,7 +144,8 @@ DouDian/
 ├── nginx/
 │   └── doudian.conf                 # Nginx 反向代理配置示例
 ├── Makefile                         # 构建自动化（make build/clean/run...）
-├── install.sh                       # 一键安装脚本（Systemd 部署）
+├── deploy.sh                        # 一键远程部署脚本（从 GitHub 下载/编译）
+├── install.sh                       # 本地安装脚本（需提前上传二进制文件）
 ├── manage.sh                        # 交互式管理面板（15 个功能菜单）
 ├── uninstall.sh                     # 一键卸载脚本
 ├── Dockerfile                       # 多阶段 Docker 构建
@@ -251,9 +253,70 @@ make clean
 
 ## 部署方式
 
-### 方式一：VPS 一键部署（推荐）
+### 方式一：一键远程部署（推荐）
 
-适用于 Debian / Ubuntu / CentOS / Rocky Linux 等 Linux VPS。
+在 VPS 上一行命令完成部署，脚本会自动从 GitHub 下载二进制文件（或源码编译）、配置 Systemd 服务并启动。
+
+#### 交互式部署
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/simon2026-spe/DouDian/main/deploy.sh)
+```
+
+#### 非交互式部署（适合自动化/CI）
+
+```bash
+PORT=2095 \
+SECRET_PATH=yourSecretPath \
+ADMIN_PASSWORD=YourStrongPass123 \
+NONINTERACTIVE=1 \
+bash <(curl -fsSL https://raw.githubusercontent.com/simon2026-spe/DouDian/main/deploy.sh)
+```
+
+#### 部署脚本功能
+
+| 功能 | 说明 |
+|------|------|
+| 自动下载 | 从 GitHub Releases 下载预编译二进制文件 |
+| 源码编译 | Releases 不可用时自动 clone 源码并用 Go 编译 |
+| 系统检测 | 自动识别 Debian/Ubuntu/CentOS/Rocky/Alpine |
+| 架构检测 | 支持 amd64 和 arm64 |
+| 依赖安装 | 自动安装 curl/sqlite3/openssl 等系统依赖 |
+| 交互配置 | 端口、安全路径、管理员密码 |
+| 更新备份 | 检测到已安装时自动备份旧数据 |
+| 防火墙配置 | 自动放行端口（ufw/firewalld/iptables） |
+| Nginx 配置 | 可选交互式配置反向代理 + 域名 |
+| Systemd 服务 | 自动创建服务并设置开机自启 |
+
+#### 部署脚本流程
+
+```
+检查 root → 检测系统/架构 → 安装依赖 → 交互配置 → 备份旧数据(如有)
+→ 创建目录 → 下载/编译程序 → 安装文件 → 写配置 → 创建 Systemd 服务
+→ 配置防火墙 → 启动服务 → 配置 Nginx(可选) → 打印完成信息
+```
+
+#### 部署完成后
+
+```bash
+# 管理服务
+systemctl start doudian      # 启动
+systemctl stop doudian       # 停止
+systemctl restart doudian    # 重启
+systemctl status doudian     # 状态
+
+# 管理面板（15 个功能菜单）
+bash /opt/doudian/manage.sh
+
+# 卸载
+bash /opt/doudian/manage.sh  # 选择菜单 14
+```
+
+---
+
+### 方式二：本地编译 + install.sh 部署
+
+适用于已在本地构建好二进制文件的场景。
 
 #### 步骤
 
@@ -314,7 +377,7 @@ bash uninstall.sh
 
 ---
 
-### 方式二：Docker 部署
+### 方式三：Docker 部署
 
 #### 前置要求
 
@@ -351,7 +414,7 @@ Docker 镜像采用多阶段构建：
 
 ---
 
-### 方式三：手动部署
+### 方式四：手动部署
 
 ```bash
 # 1. 构建二进制
