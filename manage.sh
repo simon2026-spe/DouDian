@@ -8,6 +8,8 @@ LOG_DIR="/var/log/doudian"
 DATA_DIR="/opt/doudian/data"
 CONFIG_FILE="/etc/default/doudian"
 SERVICE_FILE="/etc/systemd/system/doudian.service"
+GITHUB_USER="simon2026-spe"
+GITHUB_REPO="DouDian"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -37,7 +39,7 @@ show_menu() {
     echo -e "  ${CYAN}5.${PLAIN} 查看日志"
     echo -e "  ${CYAN}6.${PLAIN} 数据库备份"
     echo -e "  ${CYAN}7.${PLAIN} 数据库恢复"
-    echo -e "  ${CYAN}8.${PLAIN} 更新应用"
+    echo -e "  ${CYAN}8.${PLAIN} 更新应用（从 GitHub 自动下载）"
     echo -e "  ${CYAN}9.${PLAIN} 查看配置"
     echo -e "  ${CYAN}10.${PLAIN} 编辑配置"
     echo -e "  ${CYAN}11.${PLAIN} 重新生成密钥"
@@ -180,15 +182,175 @@ restore_db() {
 }
 
 update_app() {
-    echo -e "${YELLOW}此功能需要从 GitHub 或指定地址下载新版本${PLAIN}"
-    echo -e "${YELLOW}请手动上传新的 doudian 二进制文件到 $APP_DIR/${PLAIN}"
+    echo -e "${BLUE}=== 更新应用 ===${PLAIN}"
     echo ""
-    read -p "是否重启服务使更新生效？[Y/n]: " confirm
-    confirm=${confirm:-Y}
-    if [[ "$confirm" =~ ^[Yy]$ ]]; then
-        systemctl restart doudian
-        echo -e "${GREEN}服务已重启${PLAIN}"
+
+    # 检测架构
+    local arch
+    arch=$(uname -m)
+    case "$arch" in
+        x86_64|amd64) arch="amd64" ;;
+        aarch64|arm64) arch="arm64" ;;
+            *) echo -e "${RED}不支持的架构: $arch${PLAIN}"; pause; return ;;
+    esac
+    echo -e "${CYAN}系统架构: $arch${PLAIN}"
+
+    # 检查 GitHub Releases 是否有新版本
+    local release_url="https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/releases/latest"
+    local release_info
+    release_info=$(curl -sL --max-time 15 "$release_url" 2>/dev/null || echo "")
+
+    if [[ -z "$release_info" ]] || ! echo "$release_info" | grep -q "tag_name"; then
+        echo -e "${RED}无法获取最新版本信息，请检查网络连接${PLAIN}"
+        echo -e "${YELLOW}也可以手动上传二进制文件到 $APP_DIR/ 后重启服务${PLAIN}"
+        pause
+        return
     fi
+
+    # 提取版本号
+    local latest_tag
+    latest_tag=$(echo "$release_info" | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"//;s/".*//')
+    echo -e "${CYAN}最新版本: $latest_tag${PLAIN}"
+
+    # 提取发布时间
+    local published_at
+    published_at=$(echo "$release_info" | grep '"published_at"' | head -1 | sed 's/.*"published_at": *"//;s/".*//')
+    echo -e "${CYAN}发布时间: $published_at${PLAIN}"
+
+    # 查找对应架构的下载链接
+    local download_url
+    download_url=$(echo "$release_info" | grep "browser_download_url" | grep "linux-${arch}" | head -1 | sed 's/.*"browser_download_url": *"//;s/".*//')
+
+    if [[ -z "$download_url" ]]; then
+        echo -e "${RED}未找到 linux-${arch} 的预编译文件${PLAIN}"
+        echo -e "${YELLOW}请确认 GitHub Actions 构建已完成并发布了 Release${PLAIN}"
+        pause
+        return
+    fi
+
+    echo ""
+    echo -e "${CYAN}下载地址: $download_url${PLAIN}"
+    echo ""
+    read -p "确认下载并更新？[Y/n]: " confirm
+    confirm=${confirm:-Y}
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        echo "已取消"
+        pause
+        return
+    fi
+
+    # 备份数据库
+    local backup_time=$(date +%Y%m%d_%H%M%S)
+    local backup_dir="$DATA_DIR/backups"
+    mkdir -p "$backup_dir"
+
+    if [[ -f "$DATA_DIR/doudian.db" ]]; then
+        echo -e "${BLUE}备份数据库...${PLAIN}"
+        cp "$DATA_DIR/doudian.db" "$backup_dir/pre-update_${backup_time}.db"
+        echo -e "${GREEN}数据库已备份到 $backup_dir/pre-update_${backup_time}.db${PLAIN}"
+    fi
+
+    # 停止服务
+    echo -e "${BLUE}停止服务...${PLAIN}"
+    systemctl stop doudian 2>/dev/null || true
+
+    # 备份旧二进制
+    if [[ -f "$APP_DIR/doudian" ]]; then
+        cp "$APP_DIR/doudian" "$APP_DIR/doudian.bak.${backup_time}"
+        echo -e "${CYAN}旧版本已备份: $APP_DIR/doudian.bak.${backup_time}${PLAIN}"
+    fi
+
+    # 下载新版本
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
+    echo -e "${BLUE}下载新版本...${PLAIN}"
+
+    if ! curl -sL --max-time 120 -o "$tmp_dir/doudian.tar.gz" "$download_url"; then
+        echo -e "${RED}下载失败${PLAIN}"
+        echo -e "${YELLOW}正在回滚...${PLAIN}"
+        if [[ -f "$APP_DIR/doudian.bak.${backup_time}" ]]; then
+            cp "$APP_DIR/doudian.bak.${backup_time}" "$APP_DIR/doudian"
+        fi
+        systemctl start doudian 2>/dev/null
+        rm -rf "$tmp_dir"
+        pause
+        return
+    fi
+
+    # 解压
+    tar -xzf "$tmp_dir/doudian.tar.gz" -C "$tmp_dir/" 2>/dev/null || true
+
+    # 安装新二进制
+    local installed=0
+    if [[ -f "$tmp_dir/doudian-linux-${arch}" ]]; then
+        cp "$tmp_dir/doudian-linux-${arch}" "$APP_DIR/doudian"
+        installed=1
+    elif [[ -f "$tmp_dir/doudian" ]]; then
+        cp "$tmp_dir/doudian" "$APP_DIR/doudian"
+        installed=1
+    fi
+
+    if [[ "$installed" -eq 0 ]]; then
+        echo -e "${RED}解压后未找到二进制文件${PLAIN}"
+        echo -e "${YELLOW}正在回滚...${PLAIN}"
+        if [[ -f "$APP_DIR/doudian.bak.${backup_time}" ]]; then
+            cp "$APP_DIR/doudian.bak.${backup_time}" "$APP_DIR/doudian"
+        fi
+        systemctl start doudian 2>/dev/null
+        rm -rf "$tmp_dir"
+        pause
+        return
+    fi
+
+    chmod +x "$APP_DIR/doudian"
+    echo -e "${GREEN}新二进制文件已安装${PLAIN}"
+
+    # 更新静态资源（如果存在）
+    if [[ -d "$tmp_dir/static" ]]; then
+        rm -rf "$APP_DIR/static"
+        cp -r "$tmp_dir/static" "$APP_DIR/static"
+        echo -e "${GREEN}静态资源已更新${PLAIN}"
+    fi
+
+    # 更新管理脚本自身
+    if [[ -f "$tmp_dir/manage.sh" ]]; then
+        cp "$tmp_dir/manage.sh" "$APP_DIR/manage.sh"
+        chmod +x "$APP_DIR/manage.sh"
+        echo -e "${GREEN}管理脚本已更新${PLAIN}"
+    fi
+
+    rm -rf "$tmp_dir"
+
+    # 启动服务
+    echo -e "${BLUE}启动服务...${PLAIN}"
+    systemctl start doudian
+    sleep 2
+
+    if systemctl is-active --quiet doudian; then
+        echo -e "${GREEN}========================================${PLAIN}"
+        echo -e "${GREEN}  更新完成！${PLAIN}"
+        echo -e "${GREEN}========================================${PLAIN}"
+        echo -e "  ${CYAN}版本: $latest_tag${PLAIN}"
+        echo -e "  ${CYAN}数据库备份: $backup_dir/pre-update_${backup_time}.db${PLAIN}"
+        echo -e "  ${CYAN}旧版本备份: $APP_DIR/doudian.bak.${backup_time}${PLAIN}"
+    else
+        echo -e "${RED}服务启动失败！正在回滚...${PLAIN}"
+        if [[ -f "$APP_DIR/doudian.bak.${backup_time}" ]]; then
+            cp "$APP_DIR/doudian.bak.${backup_time}" "$APP_DIR/doudian"
+            chmod +x "$APP_DIR/doudian"
+            systemctl start doudian
+            sleep 2
+            if systemctl is-active --quiet doudian; then
+                echo -e "${YELLOW}已回滚到旧版本${PLAIN}"
+            else
+                echo -e "${RED}回滚也失败，请检查日志: journalctl -u doudian -n 20${PLAIN}"
+            fi
+        else
+            echo -e "${RED}无旧版本可回滚，请检查日志: journalctl -u doudian -n 20${PLAIN}"
+        fi
+    fi
+
+    echo ""
     pause
 }
 
