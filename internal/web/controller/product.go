@@ -17,6 +17,7 @@ func ListProducts(c *gin.Context) {
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
 	supplierID, _ := strconv.ParseUint(c.Query("supplier_id"), 10, 32)
 	keyword := c.Query("keyword")
+	status := c.Query("status")
 
 	if page < 1 {
 		page = 1
@@ -25,7 +26,7 @@ func ListProducts(c *gin.Context) {
 		pageSize = 20
 	}
 
-	result, err := service.ListProducts(page, pageSize, uint(supplierID), keyword)
+	result, err := service.ListProducts(page, pageSize, uint(supplierID), keyword, status)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -281,5 +282,5 @@ func ProductTemplate(c *gin.Context) {
 
 	c.Writer.Write([]byte{0xEF, 0xBB, 0xBF})
 	writer.Write(service.ProductCSVHeader())
-	writer.Write([]string{"1", "SKU-001", "示例商品", "9.90", "100", "示例描述"})
+	writer.Write([]string{"1", "SKU-001", "示例商品", "默认规格", "9.90", "19.90", "100", "https://example.com/image.jpg", "示例备注"})
 }

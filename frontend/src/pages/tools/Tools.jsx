@@ -5,7 +5,6 @@ import {
   DatabaseOutlined,
   CloudUploadOutlined,
   CloudDownloadOutlined,
-  SyncOutlined,
   FileTextOutlined,
   WarningOutlined,
 } from '@ant-design/icons'
@@ -19,42 +18,37 @@ const Tools = () => {
   const [backupModalVisible, setBackupModalVisible] = useState(false)
   const [backupLoading, setBackupLoading] = useState(false)
 
-  // 一键处理
   const handleOneClickProcess = () => {
     setProcessing(true)
     const hide = message.loading('正在一键处理...', 0)
-    
-    http.post('/tools/one-click-process')
-      .then(() => {
+
+    http.post('/tools/process-all')
+      .then((res) => {
         hide()
-        message.success('一键处理完成')
+        message.success(`处理完成，成功 ${res.success_count || 0} 个，失败 ${res.fail_count || 0} 个`)
       })
       .catch(() => {
         hide()
-        message.success('一键处理完成（模拟）')
       })
       .finally(() => {
         setProcessing(false)
       })
   }
 
-  // 同步商品
   const handleSyncProducts = () => {
     message.loading({ content: '正在同步商品...', key: 'sync' })
     http.post('/tools/sync-products')
       .then(() => message.success({ content: '商品同步完成', key: 'sync' }))
-      .catch(() => message.success({ content: '商品同步完成（模拟）', key: 'sync' }))
+      .catch(() => message.error({ content: '商品同步失败，请稍后重试', key: 'sync' }))
   }
 
-  // 同步订单
   const handleSyncOrders = () => {
     message.loading({ content: '正在同步订单...', key: 'sync' })
     http.post('/tools/sync-orders')
       .then(() => message.success({ content: '订单同步完成', key: 'sync' }))
-      .catch(() => message.success({ content: '订单同步完成（模拟）', key: 'sync' }))
+      .catch(() => message.error({ content: '订单同步失败，请稍后重试', key: 'sync' }))
   }
 
-  // 创建备份
   const handleCreateBackup = () => {
     setBackupLoading(true)
     http.post('/tools/backup/create')
@@ -62,43 +56,27 @@ const Tools = () => {
         message.success('备份创建成功')
         fetchBackups()
       })
-      .catch(() => {
-        message.success('备份创建成功（模拟）')
-        const newBackup = {
-          id: Date.now(),
-          filename: `backup_${Date.now()}.db`,
-          size: 1024 * 1024 * 2.5,
-          created_at: new Date().toISOString(),
-        }
-        setBackups([newBackup, ...backups])
-      })
+      .catch(() => {})
       .finally(() => {
         setBackupLoading(false)
       })
   }
 
-  // 获取备份列表
   const fetchBackups = async () => {
     try {
       const result = await http.get('/tools/backups')
       setBackups(result || [])
     } catch (error) {
-      setBackups([
-        { id: 1, filename: 'dropship_backup_20260906_093115.db', size: 2621440, created_at: '2026-09-06 09:31:15' },
-        { id: 2, filename: 'dropship_backup_20260901_120000.db', size: 2490368, created_at: '2026-09-01 12:00:00' },
-        { id: 3, filename: 'dropship_backup_20260825_183000.db', size: 2359296, created_at: '2026-08-25 18:30:00' },
-      ])
+      setBackups([])
     }
   }
 
-  // 下载备份
   const handleDownloadBackup = (filename) => {
     http.download(`/tools/backup/${filename}/download`, {}, filename)
       .then(() => message.success('下载成功'))
-      .catch(() => message.success('下载成功（模拟）'))
+      .catch(() => {})
   }
 
-  // 删除备份
   const handleDeleteBackup = (id) => {
     Modal.confirm({
       title: '确认删除',
@@ -113,21 +91,16 @@ const Tools = () => {
             message.success('删除成功')
             fetchBackups()
           })
-          .catch(() => {
-            message.success('删除成功（模拟）')
-            setBackups(backups.filter(b => b.id !== id))
-          })
+          .catch(() => {})
       },
     })
   }
 
-  // 打开备份管理
   const openBackupModal = () => {
     fetchBackups()
     setBackupModalVisible(true)
   }
 
-  // 工具卡片配置
   const toolCards = [
     {
       title: '一键处理',
@@ -177,7 +150,6 @@ const Tools = () => {
         breadcrumbs={[{ title: '首页' }, { title: '工具箱' }]}
       />
 
-      {/* 工具卡片 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         {toolCards.map((card, index) => (
           <Col xs={24} sm={12} lg={6} key={index}>
@@ -219,7 +191,6 @@ const Tools = () => {
         ))}
       </Row>
 
-      {/* 备份管理模态框 */}
       <Modal
         title="备份管理"
         open={backupModalVisible}

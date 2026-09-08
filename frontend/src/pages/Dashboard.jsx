@@ -91,9 +91,9 @@ const Dashboard = () => {
       width: 80,
     },
     {
-      title: '客户',
-      dataIndex: 'customer_name',
-      key: 'customer_name',
+      title: '收件人',
+      dataIndex: 'receiver',
+      key: 'receiver',
       width: 100,
     },
     {

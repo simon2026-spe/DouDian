@@ -226,5 +226,5 @@ func OrderTemplate(c *gin.Context) {
 
 	c.Writer.Write([]byte{0xEF, 0xBB, 0xBF})
 	writer.Write(service.OrderCSVHeader())
-	writer.Write([]string{"DD20260901001", "SKU-001", "示例商品", "1", "张三", "13800138000", "北京市朝阳区", "1", "pending"})
+	writer.Write([]string{"DD20260901001", "SKU-001", "示例商品", "1", "默认规格", "9.90", "张三", "13800138000", "北京市朝阳区建国路88号", "1", "pending"})
 }

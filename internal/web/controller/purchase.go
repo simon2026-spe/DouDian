@@ -16,6 +16,7 @@ func ListPurchaseOrders(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
 	status := c.Query("status")
+	keyword := c.Query("keyword")
 
 	if page < 1 {
 		page = 1
@@ -24,7 +25,7 @@ func ListPurchaseOrders(c *gin.Context) {
 		pageSize = 20
 	}
 
-	result, err := service.ListPurchaseOrders(page, pageSize, status)
+	result, err := service.ListPurchaseOrders(page, pageSize, status, keyword)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,

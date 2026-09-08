@@ -258,5 +258,5 @@ func SupplierTemplate(c *gin.Context) {
 	writer.Write(service.SupplierCSVHeader())
 
 	// 写入示例行
-	writer.Write([]string{"示例供应商有限公司", "张经理", "13800138000", "example@test.com", "浙江省义乌市", "https://example.com", "示例备注"})
+	writer.Write([]string{"示例供应商有限公司", "张经理", "13800138000", "wx_example", "浙江省义乌市", "示例备注"})
 }
