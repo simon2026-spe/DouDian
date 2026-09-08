@@ -167,6 +167,33 @@ func UpdatePurchaseOrder(c *gin.Context) {
 	})
 }
 
+// UpdatePurchaseOrderStatus 更新采购单状态
+// PUT /api/purchase-orders/:id/status
+func UpdatePurchaseOrderStatus(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的ID"})
+		return
+	}
+
+	var req struct {
+		Status         string `json:"status"`
+		TrackingNumber string `json:"tracking_number"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "请求参数错误: " + err.Error()})
+		return
+	}
+
+	if err := service.UpdatePurchaseOrder(uint(id), req.Status, req.TrackingNumber); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "更新采购单失败: " + err.Error()})
+		return
+	}
+
+	updatedPO, _ := service.GetPurchaseOrder(uint(id))
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "更新成功", "data": updatedPO})
+}
+
 // ExportPurchaseOrders CSV导出采购单
 // GET /api/purchase-orders/export
 func ExportPurchaseOrders(c *gin.Context) {

@@ -2,7 +2,6 @@
 
 import (
 	"doudian/internal/config"
-	"doudian/internal/service"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,9 +12,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ProcessAllOrders 一键处理所有待处理订单
-// POST /api/tools/process-all
-func ProcessAllOrders(c *gin.Context) {
+// ProcessAllOrdersTool 工具页一键处理
+func ProcessAllOrdersTool(c *gin.Context) {
 	successCount, failCount, err := service.ProcessAllPendingOrders()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{

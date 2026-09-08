@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { Table, Button, Space, message, Tag, Dropdown, Menu } from 'antd'
-import {
-  PlusOutlined,
-  EyeOutlined,
-  ExportOutlined,
-  DownOutlined,
-  SyncOutlined,
-} from '@ant-design/icons'
+import { Table, Button, Space, message, Dropdown, Menu } from 'antd'
+import { ExportOutlined, DownOutlined, SyncOutlined } from '@ant-design/icons'
 import PageHeader from '../../components/PageHeader.jsx'
 import SearchBar from '../../components/SearchBar.jsx'
 import Pagination from '../../components/Pagination.jsx'
@@ -22,14 +16,11 @@ const PurchaseList = () => {
   const [page, setPage] = useState(DEFAULT_PAGE)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [searchParams, setSearchParams] = useState({})
-  const [generating, setGenerating] = useState(false)
 
   const searchFields = [
-    { name: 'keyword', label: '关键词', type: 'input', placeholder: '采购单号/供应商' },
+    { name: 'keyword', label: '关键词', type: 'input', placeholder: '采购单号' },
     {
-      name: 'status',
-      label: '状态',
-      type: 'select',
+      name: 'status', label: '状态', type: 'select',
       options: [
         { value: 'pending', label: '待采购' },
         { value: 'ordered', label: '已下单' },
@@ -49,75 +40,26 @@ const PurchaseList = () => {
       setData(result.items || [])
       setTotal(result.total || 0)
     } catch (error) {
-      console.error('获取采购单列表失败:', error)
-      setData([
-        { id: 1, po_no: 'PO202609080001', supplier_name: '广州服饰工厂', item_count: 5, total_amount: 520, status: PURCHASE_STATUS.PENDING, created_at: '2026-09-08 10:30:00' },
-        { id: 2, po_no: 'PO202609080002', supplier_name: '深圳电子科技', item_count: 3, total_amount: 340, status: PURCHASE_STATUS.ORDERED, created_at: '2026-09-08 09:15:00' },
-        { id: 3, po_no: 'PO202609070001', supplier_name: '义乌小商品批发', item_count: 8, total_amount: 180, status: PURCHASE_STATUS.SHIPPED, created_at: '2026-09-07 16:20:00' },
-        { id: 4, po_no: 'PO202609070002', supplier_name: '广州服饰工厂', item_count: 2, total_amount: 150, status: PURCHASE_STATUS.RECEIVED, created_at: '2026-09-07 14:10:00' },
-        { id: 5, po_no: 'PO202609060001', supplier_name: '深圳电子科技', item_count: 4, total_amount: 420, status: PURCHASE_STATUS.COMPLETED, created_at: '2026-09-06 11:00:00' },
-      ])
-      setTotal(5)
+      setData([])
+      setTotal(0)
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    fetchData()
-  }, [page, pageSize, searchParams])
+  useEffect(() => { fetchData() }, [page, pageSize, searchParams])
 
-  const handleSearch = (values) => {
-    setSearchParams(values)
-    setPage(DEFAULT_PAGE)
-  }
+  const handleSearch = (values) => { setSearchParams(values); setPage(DEFAULT_PAGE) }
+  const handleReset = () => { setSearchParams({}); setPage(DEFAULT_PAGE) }
 
-  const handleReset = () => {
-    setSearchParams({})
-    setPage(DEFAULT_PAGE)
-  }
-
-  // 生成采购单
-  const handleGenerate = () => {
-    setGenerating(true)
-    message.loading({ content: '正在生成采购单...', key: 'generate' })
-    http.post('/purchase-orders/generate')
-      .then(() => {
-        message.success({ content: '采购单生成成功', key: 'generate' })
-        fetchData()
-      })
-      .catch(() => {
-        message.success({ content: '采购单生成成功（模拟）', key: 'generate' })
-        const newItem = {
-          id: Date.now(),
-          po_no: `PO${Date.now()}`,
-          supplier_name: '新供应商',
-          item_count: 0,
-          total_amount: 0,
-          status: PURCHASE_STATUS.PENDING,
-          created_at: new Date().toISOString(),
-        }
-        setData([newItem, ...data])
-        setTotal(total + 1)
-      })
-      .finally(() => {
-        setGenerating(false)
-      })
-  }
-
-  // 更新状态
   const updateStatus = async (id, status) => {
     try {
       await http.put(`/purchase-orders/${id}/status`, { status })
       message.success('状态更新成功')
       fetchData()
-    } catch (error) {
-      message.success('状态更新成功（模拟）')
-      setData(data.map((item) => (item.id === id ? { ...item, status } : item)))
-    }
+    } catch (error) {}
   }
 
-  // 状态操作菜单
   const getStatusMenu = (record) => {
     const statusFlow = [
       { key: PURCHASE_STATUS.ORDERED, label: '标记已下单' },
@@ -126,64 +68,33 @@ const PurchaseList = () => {
       { key: PURCHASE_STATUS.COMPLETED, label: '标记已完成' },
       { key: PURCHASE_STATUS.CANCELLED, label: '取消采购单' },
     ]
-
-    return (
-      <Menu
-        onClick={({ key }) => updateStatus(record.id, key)}
-        items={statusFlow.map((s) => ({ key: s.key, label: s.label }))}
-      />
-    )
+    return <Menu onClick={({ key }) => updateStatus(record.id, key)} items={statusFlow.map((s) => ({ key: s.key, label: s.label }))} />
   }
 
   const handleExport = () => {
-    message.info('正在导出数据...')
-    http.download('/purchase-orders/export', searchParams, `采购单列表_${Date.now()}.xlsx`)
-      .then(() => message.success('导出成功'))
-      .catch(() => message.success('导出成功（模拟）'))
+    http.download('/purchase-orders/export', searchParams, `采购单列表_${Date.now()}.csv`)
+      .then(() => message.success('导出成功')).catch(() => {})
   }
 
   const columns = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 70 },
     { title: '采购单号', dataIndex: 'po_no', key: 'po_no', width: 160 },
-    { title: '供应商', dataIndex: 'supplier_name', key: 'supplier_name', width: 160 },
-    { title: '商品数', dataIndex: 'item_count', key: 'item_count', width: 90 },
+    { title: '供应商', key: 'supplier_name', width: 160,
+      render: (_, record) => record.supplier ? record.supplier.name : '-' },
+    { title: '商品', key: 'product_name', width: 200,
+      render: (_, record) => record.product ? record.product.name : '-' },
+    { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 80 },
+    { title: '采购价', dataIndex: 'purchase_price', key: 'purchase_price', width: 100, render: (val) => formatMoney(val) },
+    { title: '总金额', dataIndex: 'total_amount', key: 'total_amount', width: 110, render: (val) => formatMoney(val) },
+    { title: '状态', dataIndex: 'status', key: 'status', width: 100, render: (status) => <StatusTag status={status} type="purchase" /> },
+    { title: '物流单号', dataIndex: 'tracking_number', key: 'tracking_number', width: 140 },
+    { title: '创建时间', dataIndex: 'created_at', key: 'created_at', width: 170, render: (val) => formatDateTime(val) },
     {
-      title: '总金额',
-      dataIndex: 'total_amount',
-      key: 'total_amount',
-      width: 110,
-      render: (val) => formatMoney(val),
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      width: 100,
-      render: (status) => <StatusTag status={status} type="purchase" />,
-    },
-    {
-      title: '创建时间',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      width: 170,
-      render: (val) => formatDateTime(val),
-    },
-    {
-      title: '操作',
-      key: 'action',
-      width: 200,
-      fixed: 'right',
+      title: '操作', key: 'action', width: 150, fixed: 'right',
       render: (_, record) => (
-        <Space size="small">
-          <Button type="link" size="small" icon={<EyeOutlined />}>
-            详情
-          </Button>
-          <Dropdown overlay={getStatusMenu(record)} trigger={['click']}>
-            <Button type="link" size="small">
-              更新状态 <DownOutlined />
-            </Button>
-          </Dropdown>
-        </Space>
+        <Dropdown overlay={getStatusMenu(record)} trigger={['click']}>
+          <Button type="link" size="small">更新状态 <DownOutlined /></Button>
+        </Dropdown>
       ),
     },
   ]
@@ -196,43 +107,13 @@ const PurchaseList = () => {
         breadcrumbs={[{ title: '首页' }, { title: '采购单管理' }]}
         extra={
           <Space>
-            <Button
-              type="primary"
-              icon={<SyncOutlined spin={generating} />}
-              onClick={handleGenerate}
-              loading={generating}
-            >
-              生成采购单
-            </Button>
             <Button icon={<ExportOutlined />} onClick={handleExport}>导出</Button>
           </Space>
         }
       />
-
-      <SearchBar
-        fields={searchFields}
-        onSearch={handleSearch}
-        onReset={handleReset}
-      />
-
-      <Table
-        columns={columns}
-        dataSource={data}
-        rowKey="id"
-        loading={loading}
-        pagination={false}
-        scroll={{ x: 1000 }}
-      />
-
-      <Pagination
-        current={page}
-        pageSize={pageSize}
-        total={total}
-        onChange={(p, ps) => {
-          setPage(p)
-          setPageSize(ps)
-        }}
-      />
+      <SearchBar fields={searchFields} onSearch={handleSearch} onReset={handleReset} />
+      <Table columns={columns} dataSource={data} rowKey="id" loading={loading} pagination={false} scroll={{ x: 1300 }} />
+      <Pagination current={page} pageSize={pageSize} total={total} onChange={(p, ps) => { setPage(p); setPageSize(ps) }} />
     </div>
   )
 }

@@ -104,27 +104,57 @@ func CreateOrder(c *gin.Context) {
 // DeleteOrder 删除订单
 // DELETE /api/orders/:id
 func DeleteOrder(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "无效的ID",
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的ID"})
 		return
 	}
 
 	if err := service.DeleteOrder(uint(id)); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "删除订单失败: " + err.Error(),
-		})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "删除订单失败: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "删除成功"})
+}
+
+// UpdateOrder 更新订单
+// PUT /api/orders/:id
+func UpdateOrder(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的ID"})
+		return
+	}
+
+	var order model.Order
+	if err := c.ShouldBindJSON(&order); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "请求参数错误: " + err.Error()})
+		return
+	}
+
+	if err := service.UpdateOrder(uint(id), &order); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "更新订单失败: " + err.Error()})
+		return
+	}
+
+	updatedOrder, _, _ := service.GetOrder(uint(id))
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "更新成功", "data": updatedOrder})
+}
+
+// ProcessAllOrders 一键匹配所有待处理订单
+// POST /api/orders/match
+func ProcessAllOrders(c *gin.Context) {
+	successCount, failCount, err := service.ProcessAllPendingOrders()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "处理失败: " + err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "删除成功",
+		"message": "处理完成",
+		"data": gin.H{"success_count": successCount, "fail_count": failCount},
 	})
 }
 

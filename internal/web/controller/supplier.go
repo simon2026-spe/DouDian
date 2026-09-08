@@ -24,7 +24,7 @@ func ListSuppliers(c *gin.Context) {
 		pageSize = 20
 	}
 
-	result, err := service.ListSuppliers(page, pageSize, keyword)
+	result, err := service.ListSuppliers(page, pageSize, keyword, c.Query("status"))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
