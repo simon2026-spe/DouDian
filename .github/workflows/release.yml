@@ -26,6 +26,9 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Tidy Go modules
+        run: go mod tidy
+
       - name: Build frontend
         run: |
           cd frontend
