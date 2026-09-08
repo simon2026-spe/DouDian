@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  doudian:
+    build: .
+    container_name: doudian
+    restart: unless-stopped
+    ports:
+      - "2095:2095"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=2095
+      - DB_PATH=/opt/doudian/data/doudian.db
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production-please-change}
+      - SECRET_PATH=${SECRET_PATH:-}
+      - LOG_LEVEL=info
+    volumes:
+      - doudian_data:/opt/doudian/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:2095/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  doudian_data:

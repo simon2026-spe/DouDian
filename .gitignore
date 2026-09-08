@@ -1,0 +1,50 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+doudian
+doudian-linux-*
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Build output
+static/
+
+# Environment
+.env
+.env.local
+
+# Database
+instance/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Temporary
+*.tmp
+*.bak
+*.cache
+
+# Go toolchain (not needed in repo)
+tools/
