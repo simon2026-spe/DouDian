@@ -413,7 +413,16 @@ install_files() {
             fi
             ;;
         remote)
-            cp "$TEMP_DIR/doudian" "$APP_DIR/"
+            # tar 包中二进制文件名带平台后缀（如 doudian-linux-amd64），需重命名为 doudian
+            if [[ -f "$TEMP_DIR/doudian-linux-${ARCH}" ]]; then
+                cp "$TEMP_DIR/doudian-linux-${ARCH}" "$APP_DIR/doudian"
+            elif [[ -f "$TEMP_DIR/doudian" ]]; then
+                cp "$TEMP_DIR/doudian" "$APP_DIR/"
+            else
+                print_error "未找到二进制文件，解压内容:"
+                ls -la "$TEMP_DIR/"
+                exit 1
+            fi
             if [[ -d "$TEMP_DIR/static" ]]; then
                 cp -r "$TEMP_DIR/static" "$APP_DIR/"
             fi
