@@ -30,6 +30,25 @@ func ListShops(c *gin.Context) {
 	})
 }
 
+// GetAllShops 获取所有抖店（不分页，用于下拉选择）
+// GET /api/shops/all
+func GetAllShops(c *gin.Context) {
+	shops, err := service.ListShops("")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "获取抖店列表失败: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "获取成功",
+		"data":    shops,
+	})
+}
+
 // GetShop 获取抖店详情
 // GET /api/shops/:id
 func GetShop(c *gin.Context) {

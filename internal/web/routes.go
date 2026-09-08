@@ -51,6 +51,7 @@ func SetupRouter() *gin.Engine {
 			shops := authAPI.Group("/shops")
 			{
 				shops.GET("", controller.ListShops)
+				shops.GET("/all", controller.GetAllShops)
 				shops.GET("/:id", controller.GetShop)
 				shops.POST("", controller.CreateShop)
 				shops.PUT("/:id", controller.UpdateShop)
@@ -61,6 +62,7 @@ func SetupRouter() *gin.Engine {
 			suppliers := authAPI.Group("/suppliers")
 			{
 				suppliers.GET("", controller.ListSuppliers)
+				suppliers.GET("/all", controller.GetAllSuppliers)
 				suppliers.GET("/template", controller.SupplierTemplate)
 				suppliers.GET("/export", controller.ExportSuppliers)
 				suppliers.POST("/import", controller.ImportSuppliers)
@@ -113,6 +115,10 @@ func SetupRouter() *gin.Engine {
 			{
 				tools.POST("/process-all", controller.ProcessAllOrders)
 				tools.POST("/backup", controller.BackupDatabase)
+				tools.POST("/backup/create", controller.BackupDatabase)
+				tools.GET("/backups", controller.ListBackups)
+				tools.GET("/backup/:filename/download", controller.DownloadBackup)
+				tools.DELETE("/backup/:id", controller.DeleteBackup)
 			}
 		}
 	}

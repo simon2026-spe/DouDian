@@ -40,6 +40,25 @@ func ListSuppliers(c *gin.Context) {
 	})
 }
 
+// GetAllSuppliers 获取所有供应商（不分页，用于下拉选择）
+// GET /api/suppliers/all
+func GetAllSuppliers(c *gin.Context) {
+	suppliers, err := service.GetAllSuppliers()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "获取供应商列表失败: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "获取成功",
+		"data":    suppliers,
+	})
+}
+
 // GetSupplier 获取供应商详情
 // GET /api/suppliers/:id
 func GetSupplier(c *gin.Context) {
