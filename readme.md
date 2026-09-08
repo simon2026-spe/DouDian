@@ -260,7 +260,7 @@ make clean
 #### 交互式部署
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/simon2026-spe/DouDian/main/deploy.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/simon2026-spe/DouDian/master/deploy.sh)
 ```
 
 #### 非交互式部署（适合自动化/CI）
@@ -270,7 +270,7 @@ PORT=2095 \
 SECRET_PATH=yourSecretPath \
 ADMIN_PASSWORD=YourStrongPass123 \
 NONINTERACTIVE=1 \
-bash <(curl -fsSL https://raw.githubusercontent.com/simon2026-spe/DouDian/main/deploy.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/simon2026-spe/DouDian/master/deploy.sh)
 ```
 
 #### 部署脚本功能
