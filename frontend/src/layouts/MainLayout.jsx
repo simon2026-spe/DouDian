@@ -111,7 +111,7 @@ const MainLayout = () => {
             background: 'rgba(0,0,0,0.2)',
           }}
         >
-          {collapsed ? '代发' : '一键代发管理系统'}
+          {collapsed ? '成本' : '成本管理系统'}
         </div>
 
         {/* 菜单 */}
